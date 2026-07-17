@@ -206,13 +206,14 @@
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: var(--radius-lg);
-      padding: 6px;
+      padding: 6px 10px 6px 6px;
       box-shadow: var(--shadow-sm);
       margin-bottom: 12px;
       overflow-x: auto;
       overflow-y: hidden;
       scrollbar-width: none;
       -webkit-overflow-scrolling: touch;
+      scroll-padding-right: 12px;
     }
     .filter-sidebar::-webkit-scrollbar { display: none; }
     .filter-vtab {
@@ -1442,10 +1443,11 @@
 
       /* Tab title */
       .tab-title-row { margin-bottom: 14px; padding: 4px 0 0; }
+      .tab-title-row.with-toggle { margin-bottom: 14px; }
       .tab-title { font-size: 15px; }
 
       /* Horizontal filter - slightly more compact */
-      .filter-sidebar { padding: 4px; gap: 2px; }
+      .filter-sidebar { padding: 4px 10px 4px 4px; gap: 2px; }
       .filter-vtab {
         padding: 7px 10px;
         font-size: 12px;
@@ -1814,6 +1816,796 @@
       .notice-footer { padding: 10px 14px calc(10px + env(safe-area-inset-bottom)); }
     }
 
+        /* ===== Photo upload / preview ===== */
+    .photo-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+    .photo-slot {
+      position: relative;
+      padding-bottom: 100%;
+      background: var(--surface-alt);
+      border-radius: 10px;
+      overflow: hidden;
+      cursor: pointer;
+      border: 2px dashed var(--border);
+      transition: all 0.15s;
+    }
+    .photo-slot.filled {
+      border-style: solid;
+      border-color: var(--border);
+      cursor: default;
+    }
+    .photo-slot.filled img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      cursor: pointer;
+    }
+    .photo-slot.empty {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+    }
+    .photo-slot.empty:hover {
+      background: white;
+      border-color: var(--gold);
+    }
+    .photo-slot.empty > * {
+      position: absolute;
+    }
+    .photo-add-icon {
+      top: 30%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 28px;
+      font-weight: 300;
+      color: var(--gold);
+    }
+    .photo-add-hint {
+      bottom: 18%;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 11px;
+      white-space: nowrap;
+    }
+    .photo-remove {
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: rgba(0,0,0,0.65);
+      color: white;
+      border: none;
+      font-size: 15px;
+      line-height: 1;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 2;
+    }
+    .photo-remove:hover { background: rgba(0,0,0,0.85); }
+
+    /* Record row thumbnail */
+    .record-thumb {
+      width: 44px;
+      height: 44px;
+      border-radius: 8px;
+      object-fit: cover;
+      cursor: pointer;
+      display: block;
+      background: var(--surface-alt);
+      border: 1px solid var(--border);
+    }
+    .record-thumb-cell { width: 52px; }
+
+    /* Fullscreen photo viewer */
+    .photo-viewer {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.92);
+      z-index: 60;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .photo-viewer.hidden { display: none; }
+    .photo-viewer-img {
+      max-width: 100%;
+      max-height: calc(100vh - 100px);
+      object-fit: contain;
+      border-radius: 8px;
+    }
+    .photo-viewer-close {
+      position: absolute;
+      top: calc(env(safe-area-inset-top) + 12px);
+      right: 12px;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.15);
+      color: white;
+      border: none;
+      font-size: 22px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .photo-viewer-nav {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 40px;
+      height: 60px;
+      background: rgba(255,255,255,0.15);
+      color: white;
+      border: none;
+      font-size: 24px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 8px;
+    }
+    .photo-viewer-nav:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+    .photo-viewer-prev { left: 12px; }
+    .photo-viewer-next { right: 12px; }
+    .photo-viewer-counter {
+      position: absolute;
+      bottom: calc(env(safe-area-inset-bottom) + 20px);
+      left: 50%;
+      transform: translateX(-50%);
+      color: white;
+      font-size: 13px;
+      background: rgba(0,0,0,0.5);
+      padding: 4px 12px;
+      border-radius: 999px;
+    }
+
+    @media (max-width: 480px) {
+      .photo-add-icon { font-size: 24px; }
+      .photo-add-hint { font-size: 10px; }
+      .record-thumb { width: 40px; height: 40px; }
+    }
+
+        /* ===== Detail view (full screen) ===== */
+    .detail-view {
+      position: fixed;
+      inset: 0;
+      background: var(--bg);
+      background-image: var(--bg-gradient);
+      z-index: 25;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .detail-view.hidden { display: none; }
+    .detail-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: calc(env(safe-area-inset-top) + 12px) 12px 12px;
+      background: rgba(20, 30, 45, 0.75);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      color: var(--text-on-bg);
+      flex-shrink: 0;
+      position: relative;
+    }
+    .detail-btn {
+      width: 36px;
+      height: 36px;
+      background: transparent;
+      border: none;
+      color: var(--text-on-bg);
+      font-size: 22px;
+      cursor: pointer;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .detail-btn:hover { background: rgba(255,255,255,0.1); }
+    .detail-title {
+      flex: 1;
+      font-size: 15px;
+      font-weight: 700;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .detail-title a {
+      color: inherit;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      text-decoration: none;
+    }
+    .detail-title .ext-icon svg {
+      width: 12px;
+      height: 12px;
+      opacity: 0.7;
+    }
+    .detail-btn svg { width: 18px; height: 18px; }
+    .detail-btn-danger { color: #f87171; }
+    .detail-btn-danger:hover { background: rgba(248,113,113,0.15); }
+    .detail-body {
+      flex: 1;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      padding: 14px;
+      padding-bottom: calc(24px + env(safe-area-inset-bottom));
+    }
+
+    .detail-photo-card {
+      background: var(--surface);
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 12px;
+      position: relative;
+      aspect-ratio: 1;
+      max-width: 100%;
+    }
+    .detail-photo-card img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      cursor: pointer;
+    }
+    .detail-photo-empty {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--surface-alt);
+      color: var(--text-muted);
+      font-size: 13px;
+      height: 100%;
+    }
+    .detail-photo-counter {
+      position: absolute;
+      right: 10px;
+      bottom: 10px;
+      background: rgba(0,0,0,0.55);
+      color: white;
+      padding: 3px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      pointer-events: none;
+    }
+
+    .detail-fields {
+      background: var(--surface);
+      border-radius: 12px;
+      padding: 4px 14px;
+      margin-bottom: 10px;
+    }
+    .detail-row {
+      display: grid;
+      grid-template-columns: 92px 1fr;
+      gap: 12px;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border);
+      align-items: start;
+    }
+    .detail-row:last-child { border-bottom: none; }
+    .detail-row-label {
+      font-size: 13px;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+    .detail-row-value {
+      font-size: 14px;
+      color: var(--text);
+      word-break: break-word;
+      line-height: 1.5;
+    }
+    .detail-row-value.multi {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px 8px;
+      align-items: center;
+    }
+    .detail-row-value.multi > span:not(:last-child)::after {
+      content: '·';
+      margin-left: 8px;
+      color: var(--text-muted);
+    }
+    .detail-row-value a {
+      color: var(--gold);
+      text-decoration: none;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .detail-row-value a:hover { text-decoration: underline; }
+    .detail-row-value a .ext-icon svg {
+      width: 12px;
+      height: 12px;
+    }
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .status-badge.pending {
+      background: rgba(239, 68, 68, 0.12);
+      color: var(--danger);
+    }
+    .status-badge.done {
+      background: rgba(34, 197, 94, 0.15);
+      color: #16a34a;
+    }
+    .status-badge .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+    .detail-wanted-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+    .detail-row-value.date-chip-wrap {
+      display: inline-flex;
+      align-items: center;
+    }
+
+    /* Make record rows clickable */
+    .record-row-clickable {
+      cursor: pointer;
+    }
+    .record-row-clickable:hover {
+      background: rgba(0,0,0,0.02);
+    }
+
+    /* Exchange status toggle in edit form */
+    .status-toggle-row {
+      display: flex;
+      gap: 8px;
+    }
+    .status-toggle-btn {
+      flex: 1;
+      padding: 10px;
+      background: white;
+      border: 2px solid var(--border);
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    .status-toggle-btn.selected {
+      border-color: var(--navy);
+      background: var(--navy);
+      color: var(--navy-fg);
+    }
+    .status-toggle-btn.pending.selected {
+      border-color: var(--danger);
+      background: var(--danger);
+      color: white;
+    }
+    .status-toggle-btn.done.selected {
+      border-color: #16a34a;
+      background: #16a34a;
+      color: white;
+    }
+
+    /* Status indicator column in table */
+    .status-col-cell {
+      font-weight: 800;
+      text-align: center;
+      font-size: 14px;
+    }
+    .status-col-cell.done { color: #16a34a; }
+    .status-col-cell.pending { color: var(--text-muted); opacity: 0.55; }
+
+    @media (max-width: 480px) {
+      .detail-row { grid-template-columns: 80px 1fr; gap: 10px; }
+      .detail-row-label { font-size: 12px; }
+      .detail-row-value { font-size: 13px; }
+      .detail-title { font-size: 14px; }
+    }
+
+        /* Status mark below date chip */
+    .status-mark {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 6px;
+      font-size: 18px;
+      font-weight: 800;
+      line-height: 1;
+    }
+    .status-mark.done { color: #16a34a; }
+    .status-mark.pending { color: var(--danger); }
+
+        /* Date section - each date in "全部" view is its own separated card */
+    .date-section {
+      margin-bottom: 20px;
+    }
+    .date-section:last-child {
+      margin-bottom: 0;
+    }
+    .date-section-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--text-on-bg);
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      margin-bottom: 8px;
+      padding-left: 4px;
+    }
+    .date-section-count {
+      display: inline-flex;
+      align-items: center;
+      background: var(--gold);
+      color: var(--navy);
+      padding: 2px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 800;
+    }
+    @media (max-width: 480px) {
+      .date-section { margin-bottom: 16px; }
+      .date-section-title { font-size: 14px; }
+    }
+
+    /* Floating action button (FAB) */
+    .fab {
+      position: fixed;
+      right: 20px;
+      bottom: calc(20px + env(safe-area-inset-bottom));
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: var(--navy);
+      color: var(--gold);
+      border: 2px solid var(--gold);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 15;
+      transition: transform 0.15s;
+    }
+    .fab:hover { transform: scale(1.08); }
+    .fab:active { transform: scale(0.95); }
+    .fab svg { width: 26px; height: 26px; }
+    .fab.hidden { display: none; }
+
+    @media (max-width: 480px) {
+      .fab { width: 52px; height: 52px; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom)); }
+      .fab svg { width: 22px; height: 22px; }
+    }
+
+            /* Detail page photo carousel (swipeable) */
+    .detail-photo-card {
+      position: relative;
+    }
+    .detail-photo-carousel {
+      display: flex;
+      overflow-x: auto;
+      overflow-y: hidden;
+      scroll-snap-type: x mandatory;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      scroll-behavior: smooth;
+      aspect-ratio: 1;
+      width: 100%;
+    }
+    .detail-photo-carousel::-webkit-scrollbar { display: none; }
+    .detail-photo-slide {
+      flex: 0 0 100%;
+      scroll-snap-align: start;
+      scroll-snap-stop: always;
+      height: 100%;
+      position: relative;
+    }
+    .detail-photo-slide img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      cursor: pointer;
+    }
+    .detail-photo-card.no-photo {
+      aspect-ratio: 1;
+    }
+    .detail-photo-card.no-photo .detail-photo-empty {
+      height: 100%;
+    }
+    .detail-photo-dots {
+      position: absolute;
+      left: 50%;
+      bottom: 10px;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 6px;
+      background: rgba(0,0,0,0.35);
+      padding: 4px 8px;
+      border-radius: 999px;
+      pointer-events: auto;
+    }
+    .detail-photo-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.5);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .detail-photo-dot.active {
+      background: white;
+      width: 18px;
+      border-radius: 999px;
+    }
+
+    /* View toggle buttons */
+    .tab-title-row.with-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    .tab-title-row.with-toggle .tab-title {
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+    }
+    .view-toggle {
+      display: inline-flex;
+      gap: 2px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 8px;
+      padding: 3px;
+    }
+    .view-toggle-btn {
+      width: 32px;
+      height: 30px;
+      background: transparent;
+      border: none;
+      border-radius: 6px;
+      color: var(--text-on-bg-muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+    }
+    .view-toggle-btn:hover { color: var(--text-on-bg); }
+    .view-toggle-btn.active {
+      background: var(--navy);
+      color: var(--gold);
+    }
+    .view-toggle-btn svg { width: 15px; height: 15px; }
+
+    /* Grid view */
+    .grid-container {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+    @media (min-width: 640px) {
+      .grid-container { grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    }
+    @media (min-width: 900px) {
+      .grid-container { grid-template-columns: repeat(4, 1fr); }
+    }
+    .grid-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      cursor: pointer;
+      transition: all 0.15s;
+      display: flex;
+      flex-direction: column;
+    }
+    .grid-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(0,0,0,0.15);
+    }
+    .grid-card-photo-wrap {
+      position: relative;
+      aspect-ratio: 1;
+      overflow: hidden;
+      background: var(--surface-alt);
+    }
+    .grid-card-photo {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .grid-card-photo-empty {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+      font-size: 12px;
+      background: var(--surface-alt);
+    }
+    .grid-card-status {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+      font-weight: 800;
+      color: white;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+    }
+    .grid-card-status.done { background: #16a34a; }
+    .grid-card-status.pending { background: var(--danger); }
+    .grid-card-body {
+      padding: 8px 10px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .grid-card-top {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .grid-card-username {
+      font-size: 12px;
+      color: var(--text);
+      font-weight: 600;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex: 1;
+      min-width: 0;
+    }
+    .grid-wanted-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 3px;
+    }
+    .grid-wanted-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      padding: 2px 6px;
+      border: 1px solid;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+      max-width: 100%;
+      overflow: hidden;
+    }
+    .grid-wanted-chip span {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .grid-wanted-more {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 6px;
+      background: var(--surface-alt);
+      color: var(--text-muted);
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    @media (max-width: 380px) {
+      .grid-card-body { padding: 6px 8px 8px; }
+      .grid-card-username { font-size: 11px; }
+      .grid-wanted-chip { font-size: 10px; padding: 1px 5px; }
+    }
+
+    /* Clickable stats items - edit category on click */
+    .stats-count.clickable,
+    .stats-bar-row.clickable {
+      cursor: pointer;
+      transition: all 0.12s;
+      border-radius: 6px;
+    }
+    .stats-count.clickable {
+      padding: 3px 8px;
+      margin: -3px -2px;
+    }
+    .stats-bar-row.clickable {
+      padding: 4px 6px;
+      margin: -4px -6px;
+    }
+    .stats-count.clickable:hover,
+    .stats-bar-row.clickable:hover {
+      background: rgba(45, 62, 85, 0.06);
+    }
+    .stats-count.clickable:active,
+    .stats-bar-row.clickable:active {
+      background: rgba(45, 62, 85, 0.12);
+    }
+
+    /* 合計 section - subtle amber tint to distinguish from date cards */
+    .date-section.is-total .date-section-title {
+      color: var(--gold-bright);
+    }
+    .date-section.is-total .date-section-count {
+      background: var(--gold-bright);
+      color: var(--navy);
+    }
+    .date-section.is-total .stats-card {
+      border-color: rgba(201, 169, 97, 0.35);
+    }
+
+        /* Update modal - simpler list */
+    .update-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    .update-list > li {
+      padding: 12px 14px;
+      background: var(--surface-alt);
+      border-radius: 10px;
+      margin-bottom: 10px;
+      border-left: 3px solid var(--gold);
+    }
+    .update-list > li:last-child { margin-bottom: 0; }
+    .update-item-title {
+      font-size: 14px;
+      font-weight: 800;
+      color: var(--navy);
+      margin-bottom: 4px;
+      letter-spacing: 0.02em;
+    }
+    .update-item-desc {
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+    @media (max-width: 480px) {
+      .update-list > li { padding: 10px 12px; margin-bottom: 8px; }
+      .update-item-title { font-size: 13px; }
+      .update-item-desc { font-size: 11px; }
+    }
+
     /* ===== Butterflies (top-down, symmetric) ===== */
     .butterflies {
       position: fixed;
@@ -1981,8 +2773,11 @@
     </div>
   </main>
 
+  <button class="fab hidden" id="fab-add-record" data-action="add-record" aria-label="新增紀錄"></button>
+  <button class="fab hidden" id="fab-add-category" data-action="add-category" aria-label="新增類別"></button>
+
   <footer class="app-footer">
-    <div class="container">V1.2.2</div>
+    <div class="container">V1.3.0</div>
   </footer>
 
 
@@ -2004,6 +2799,67 @@
       </div>
     </div>
   </div>
+
+
+  <div class="detail-view hidden" id="detail-view" aria-hidden="true">
+    <div class="detail-header">
+      <button class="detail-btn" id="detail-back" aria-label="返回">←</button>
+      <div class="detail-title" id="detail-title"></div>
+      <button class="detail-btn" data-action="detail-edit" aria-label="編輯" id="detail-edit-btn"></button>
+      <button class="detail-btn detail-btn-danger" data-action="detail-delete" aria-label="刪除" id="detail-delete-btn"></button>
+    </div>
+    <div class="detail-body" id="detail-body"></div>
+  </div>
+
+  <div class="photo-viewer hidden" id="photo-viewer" aria-hidden="true">
+    <button class="photo-viewer-close" id="photo-viewer-close" aria-label="關閉">×</button>
+    <button class="photo-viewer-nav photo-viewer-prev" id="photo-viewer-prev" aria-label="上一張">‹</button>
+    <img class="photo-viewer-img" id="photo-viewer-img" src="" alt="">
+    <button class="photo-viewer-nav photo-viewer-next" id="photo-viewer-next" aria-label="下一張">›</button>
+    <div class="photo-viewer-counter" id="photo-viewer-counter">1 / 1</div>
+  </div>
+
+
+  <div class="notice-overlay hidden" id="update-overlay" aria-hidden="true">
+    <div class="notice-dialog update-dialog">
+      <div class="notice-header">
+        <div class="notice-title">✨ V1.3.0 更新內容</div>
+        <button class="notice-close" id="update-close" aria-label="關閉">×</button>
+      </div>
+      <div class="notice-body">
+        <ul class="update-list">
+          <li>
+            <div class="update-item-title">📸 照片功能</div>
+            <div class="update-item-desc">每筆紀錄可上傳 3 張照片，詳細頁可左右滑動看大圖</div>
+          </li>
+          <li>
+            <div class="update-item-title">📋 詳細頁面</div>
+            <div class="update-item-desc">點紀錄卡看完整資訊，直接編輯 / 刪除</div>
+          </li>
+          <li>
+            <div class="update-item-title">🔀 清單 / 格狀切換</div>
+            <div class="update-item-desc">「交換記錄」右上角切換兩種瀏覽模式，記住偏好</div>
+          </li>
+          <li>
+            <div class="update-item-title">✓ ✗ 交換狀態</div>
+            <div class="update-item-desc">標記已交換 / 未交換，側邊欄新增狀態過濾</div>
+          </li>
+          <li>
+            <div class="update-item-title">📦 應援物統計</div>
+            <div class="update-item-desc">點類別直接編輯、各日期獨立卡片</div>
+          </li>
+          <li>
+            <div class="update-item-title">➕ FAB 浮動新增鈕</div>
+            <div class="update-item-desc">右下角快速新增，避免清單長不好找按鈕</div>
+          </li>
+        </ul>
+      </div>
+      <div class="notice-footer">
+        <button class="notice-btn" id="update-ok">我知道了</button>
+      </div>
+    </div>
+  </div>
+
   <div class="notice-overlay hidden" id="notice-overlay" aria-hidden="true">
     <div class="notice-dialog">
       <div class="notice-header">
@@ -2091,6 +2947,7 @@
     
     const CATEGORIES_KEY = 'dxs-categories-v1';
     const ENABLED_DATES_KEY = 'dxs-enabled-dates-v1';
+    const VIEW_MODE_KEY = 'dxs-view-mode-v1';
 
     const CATEGORY_ICONS = {
       diamondhat: 'data:image/png;base64,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',
@@ -2148,6 +3005,7 @@
       editingId: null,
       editingCategoryId: null,
       activeTab: 'stats',
+      viewMode: 'list',  // 'list' or 'grid'
       enabledDates: ['7/24', '7/25', '7/26'],
       // Form working data (only used when modal open)
       form: {
@@ -2191,6 +3049,17 @@
 
 
 
+
+    function loadViewMode() {
+      try {
+        const val = localStorage.getItem(VIEW_MODE_KEY);
+        if (val === 'grid' || val === 'list') state.viewMode = val;
+      } catch (e) {}
+    }
+    function persistViewMode() {
+      try { localStorage.setItem(VIEW_MODE_KEY, state.viewMode); } catch (e) {}
+    }
+
     function loadEnabledDates() {
       try {
         const raw = localStorage.getItem(ENABLED_DATES_KEY);
@@ -2213,13 +3082,11 @@
     }
 
     function activeDates() {
-      // A date is active if ANY category has inventory > 0 on that date
-      // OR if there are existing entries on that date (to preserve historical records)
-      return DATE_OPTIONS.filter(d => {
-        if (state.categories.some(cat => cat.inventory && (cat.inventory[d] || 0) > 0)) return true;
-        if (state.entries.some(e => e.date === d)) return true;
-        return false;
-      });
+      // A date is active only if ANY category has inventory > 0 for that date.
+      // If no category has stock for that date, the user isn't attending → disable everywhere.
+      return DATE_OPTIONS.filter(d =>
+        state.categories.some(cat => cat.inventory && (cat.inventory[d] || 0) > 0)
+      );
     }
 
     function loadCategories() {
@@ -2249,6 +3116,9 @@
 
       // 2. Migrate entries: wantedItem (single id) → wanted array
       state.entries = state.entries.map(entry => {
+        // Ensure photos field exists (migration for older records)
+        if (!Array.isArray(entry.photos)) entry = { ...entry, photos: [] };
+        if (typeof entry.exchangeStatus === 'undefined') entry = { ...entry, exchangeStatus: 'pending' };
         if (Array.isArray(entry.wanted)) return entry; // already migrated
         const newEntry = { ...entry };
         delete newEntry.wantedItem;
@@ -2366,9 +3236,10 @@
     }
 
     function getFilteredEntries() {
-      return state.filter === 'all'
-        ? state.entries
-        : state.entries.filter(e => e.date === state.filter);
+      if (state.filter === 'all') return state.entries;
+      if (state.filter === 'exchanged') return state.entries.filter(e => e.exchangeStatus === 'done');
+      if (state.filter === 'unexchanged') return state.entries.filter(e => e.exchangeStatus !== 'done');
+      return state.entries.filter(e => e.date === state.filter);
     }
 
     function getSortedEntries() {
@@ -2424,9 +3295,8 @@
       const stats = calculateStats();
       const sections = DATE_OPTIONS
         .filter(d => {
-          // Only show date if has entries OR any category has inventory > 0 for that date
-          const perDate = stats.perDate[d];
-          if (perDate && perDate.entryCount > 0) return true;
+          // Only show date if any category has inventory > 0 for that date
+          // (matches the "no stock = not attending" rule used everywhere else)
           return state.categories.some(cat =>
             cat.inventory && (cat.inventory[d] || 0) > 0
           );
@@ -2460,7 +3330,7 @@
           : relevantCats.map(cat => {
               const count = sec.data.cards[cat.id] || 0;
               return `
-                <span class="stats-count">
+                <span class="stats-count clickable" data-action="edit-category" data-cat-id="${escapeHtml(cat.id)}">
                   <span class="stats-count-mascot" style="background:${CATEGORY_COLOR_PALETTE[cat.color % CATEGORY_COLOR_PALETTE.length].bg}">
                     ${renderCatIcon(cat.icon, 24)}
                   </span>
@@ -2492,7 +3362,7 @@
             ? 'background: linear-gradient(90deg, #f59e0b, #d97706)'
             : `background: linear-gradient(90deg, ${paletteColor.border}dd, ${paletteColor.border})`;
           return `
-            <div class="stats-bar-row">
+            <div class="stats-bar-row clickable" data-action="edit-category" data-cat-id="${escapeHtml(cat.id)}">
               <span class="stats-bar-name">${escapeHtml(cat.name)}</span>
               <div class="stats-bar-track">
                 <div class="stats-bar-fill" style="${barStyle};width:${pct}%"></div>
@@ -2503,27 +3373,20 @@
         }).join('');
 
         return `
-          <div class="stats-section">
-            <div class="stats-section-header">
-              <span class="stats-section-name ${sec.isTotal ? 'total' : ''}">${sec.label}</span>
-              <span class="stats-section-total">${sec.data.entryCount} 筆</span>
+          <div class="date-section ${sec.isTotal ? 'is-total' : ''}">
+            <div class="date-section-title">
+              ${sec.isTotal ? escapeHtml(sec.label) : escapeHtml(dateLabel(sec.key))}
+              <span class="date-section-count">${sec.data.entryCount} 筆</span>
             </div>
-            <div class="stats-counts-row">${catCountsHtml}</div>
-            ${barsHtml ? barsHtml : ''}
+            <div class="stats-card">
+              <div class="stats-counts-row">${catCountsHtml}</div>
+              ${barsHtml ? barsHtml : ''}
+            </div>
           </div>
         `;
       }).join('');
 
-      return `
-        <div class="stats-card">
-          <div class="stats-title">${ICONS.star} 應援物統計</div>
-          ${sectionsHtml}
-        </div>
-        <div class="add-block compact" data-action="add-category">
-          <div class="add-block-icon">${ICONS.star}</div>
-          <div class="add-block-title">新增類別</div>
-        </div>
-      `;
+      return sectionsHtml;
     }
 
     function renderHeader() {
@@ -2536,6 +3399,57 @@
       if (exportBtn) exportBtn.style.display = state.activeTab === 'records' ? 'inline-flex' : 'none';
       document.getElementById('count-total').textContent = state.entries.length;
       document.getElementById('btn-export').disabled = getSortedEntries().length === 0;
+      // Show FAB(s):
+      //   fab-add-record: only on records tab AND has entries
+      //   fab-add-category: only on stats tab AND has categories
+      const fabRec = document.getElementById('fab-add-record');
+      if (fabRec) {
+        const shouldShow = state.activeTab === 'records' && state.entries.length > 0;
+        fabRec.classList.toggle('hidden', !shouldShow);
+      }
+      const fabCat = document.getElementById('fab-add-category');
+      if (fabCat) {
+        const shouldShow = state.activeTab === 'stats' && state.categories.length > 0;
+        fabCat.classList.toggle('hidden', !shouldShow);
+      }
+    }
+
+
+    function renderGridCard(e) {
+      const username = e.threadsUsername || '';
+      const firstPhoto = (e.photos && e.photos.length > 0) ? e.photos[0] : null;
+      const photoBlock = firstPhoto
+        ? `<img class="grid-card-photo" src="${firstPhoto}" alt="">`
+        : `<div class="grid-card-photo grid-card-photo-empty">— 沒有照片 —</div>`;
+
+      const wantedChipsHtml = (e.wanted && e.wanted.length > 0)
+        ? e.wanted.slice(0, 3).map(w => {
+            const cat = getCategoryById(w.categoryId);
+            if (!cat) return '';
+            const palette = CATEGORY_COLOR_PALETTE[cat.color % CATEGORY_COLOR_PALETTE.length];
+            return `<span class="grid-wanted-chip" style="background:${palette.bg};color:${palette.text};border-color:${palette.border}">
+              ${renderCatIcon(cat.icon, 14)}
+              <span>${escapeHtml(cat.name)}${w.quantity > 1 ? '×' + w.quantity : ''}</span>
+            </span>`;
+          }).filter(Boolean).join('')
+        : '';
+      const moreCount = e.wanted && e.wanted.length > 3 ? `<span class="grid-wanted-more">+${e.wanted.length - 3}</span>` : '';
+
+      return `
+        <div class="grid-card" data-id="${escapeHtml(e.id)}" data-action="open-detail">
+          <div class="grid-card-photo-wrap">
+            ${photoBlock}
+            <span class="grid-card-status ${(e.exchangeStatus === 'done') ? 'done' : 'pending'}">${(e.exchangeStatus === 'done') ? '✓' : '✗'}</span>
+          </div>
+          <div class="grid-card-body">
+            <div class="grid-card-top">
+              <span class="date-chip">${escapeHtml(e.date)}</span>
+              ${username ? `<span class="grid-card-username">@${escapeHtml(username)}</span>` : ''}
+            </div>
+            ${wantedChipsHtml || moreCount ? `<div class="grid-wanted-list">${wantedChipsHtml}${moreCount}</div>` : ''}
+          </div>
+        </div>
+      `;
     }
 
     function renderList() {
@@ -2545,7 +3459,18 @@
         ? `<div class="save-error">${escapeHtml(state.saveError)}</div>`
         : '';
 
-      const tabTitleHtml = '<div class="tab-title-row"><h2 class="tab-title">交換記錄</h2></div>';
+      const hasEntries = state.entries.length > 0;
+      const toggleHtml = hasEntries ? `
+        <div class="view-toggle">
+          <button class="view-toggle-btn ${state.viewMode === 'list' ? 'active' : ''}" data-action="set-view-mode" data-view="list" aria-label="清單模式">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+          </button>
+          <button class="view-toggle-btn ${state.viewMode === 'grid' ? 'active' : ''}" data-action="set-view-mode" data-view="grid" aria-label="格狀模式">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          </button>
+        </div>
+      ` : '';
+      const tabTitleHtml = `<div class="tab-title-row with-toggle"><h2 class="tab-title">交換記錄</h2>${toggleHtml}</div>`;
       const statsHtml = '';  // Stats moved to stats tab
       const entries = getSortedEntries();
       if (entries.length === 0) {
@@ -2567,14 +3492,22 @@
         return;
       }
 
-      const rowsHtml = entries.map(e => {
+      const renderRow = (e) => {
         const username = e.threadsUsername || '';
         const profileUrl = e.profileUrl || '';
         const items = e.exchangeItems || [];
 
         return `
-          <tr data-id="${escapeHtml(e.id)}">
-            <td><span class="date-chip">${escapeHtml(e.date)}</span></td>
+          <tr data-id="${escapeHtml(e.id)}" data-action="open-detail" class="record-row-clickable">
+            <td>
+              <span class="date-chip">${escapeHtml(e.date)}</span>
+              <div class="status-mark ${(e.exchangeStatus === 'done') ? 'done' : 'pending'}">${(e.exchangeStatus === 'done') ? '✓' : '✗'}</div>
+            </td>
+            <td class="record-thumb-cell">
+              ${(e.photos && e.photos.length > 0)
+                ? `<img class="record-thumb" src="${e.photos[0]}" alt="" data-action="view-photo" data-photo-idx="0">`
+                : `<span class="empty-cell">—</span>`}
+            </td>
             <td style="min-width:130px">
               ${username && profileUrl
                 ? `<a href="${escapeHtml(profileUrl)}" target="_blank" rel="noopener noreferrer" class="username-link">@${escapeHtml(username)}<span class="ext-icon">${ICONS.ext}</span></a>`
@@ -2608,41 +3541,72 @@
                 ? `<div class="notes-text">${escapeHtml(e.notes)}</div>`
                 : `<span class="empty-cell">—</span>`}
             </td>
-            <td>
-              <div class="row-actions">
-                <button class="icon-btn" data-action="edit" aria-label="編輯">${ICONS.pencil}</button>
-                <button class="icon-btn danger" data-action="delete" aria-label="刪除">${ICONS.trash}</button>
-              </div>
-            </td>
           </tr>`;
-      }).join('');
+      };
+
+      // rowsHtml = flat list (used for single-date filter). Grouping happens in card render below.
+      const rowsHtml = entries.map(renderRow).join('');
+
+      // Table template helper (reusable for each date group card in list mode)
+      const buildTableHtml = (rows) => `
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>場次</th>
+                <th class="record-thumb-cell">照片</th>
+                <th>應援物貼文</th>
+                <th>交換物</th>
+                <th>碩/寛</th>
+                <th>備註</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      `;
+      const buildGridHtml = (items) => `
+        <div class="grid-container">${items.map(renderGridCard).join('')}</div>
+      `;
+      const buildBodyHtml = state.viewMode === 'grid' ? buildGridHtml : (rows) => `<div class="list-card">${buildTableHtml(rows)}</div>`;
+
+      // Build cardsHtml
+      let cardsHtml;
+      if (state.filter === 'all') {
+        const groupedByDate = {};
+        entries.forEach(e => {
+          if (!groupedByDate[e.date]) groupedByDate[e.date] = [];
+          groupedByDate[e.date].push(e);
+        });
+        cardsHtml = DATE_OPTIONS
+          .filter(d => groupedByDate[d] && groupedByDate[d].length > 0)
+          .map(d => {
+            const groupItems = groupedByDate[d];
+            const bodyHtml = state.viewMode === 'grid'
+              ? buildGridHtml(groupItems)
+              : `<div class="list-card">${buildTableHtml(groupItems.map(renderRow).join(''))}</div>`;
+            return `
+              <div class="date-section">
+                <div class="date-section-title">
+                  ${escapeHtml(dateLabel(d))}
+                  <span class="date-section-count">${groupItems.length} 筆</span>
+                </div>
+                ${bodyHtml}
+              </div>
+            `;
+          }).join('');
+      } else {
+        cardsHtml = state.viewMode === 'grid'
+          ? buildGridHtml(entries)
+          : `<div class="list-card">${buildTableHtml(rowsHtml)}</div>`;
+      }
 
       const sidebarHtml = renderFilterSidebar();
       container.innerHTML = tabTitleHtml + `
         <div class="records-layout">
           ${sidebarHtml}
           <div class="records-main">
-            <div class="list-card">
-              <div class="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>場次</th>
-                      <th>應援物貼文</th>
-                      <th>交換物</th>
-                      <th>碩/寛</th>
-                      <th>備註</th>
-                      <th></th>
-                    </tr>
-                  </thead>
-                  <tbody>${rowsHtml}</tbody>
-                </table>
-              </div>
-            </div>
-            <div class="add-block compact" data-action="add-record">
-              <div class="add-block-icon">${ICONS.star}</div>
-              <div class="add-block-title">新增紀錄</div>
-            </div>
+            ${cardsHtml}
           </div>
         </div>
         ` + statsHtml;
@@ -2662,19 +3626,26 @@
       DATE_OPTIONS.forEach(d => {
         counts[d] = state.entries.filter(e => e.date === d).length;
       });
+      const unexchangedCount = state.entries.filter(e => e.exchangeStatus !== 'done').length;
+      const exchangedCount = state.entries.filter(e => e.exchangeStatus === 'done').length;
       const active = activeDates();
       const items = [{ key: 'all', label: '全部', count: counts.total, enabled: true }];
       DATE_OPTIONS.forEach(d => {
         items.push({ key: d, label: d, count: counts[d], enabled: active.includes(d) });
       });
+      items.push({ key: 'divider', divider: true });
+      items.push({ key: 'unexchanged', label: '未交換', count: unexchangedCount, enabled: true, className: 'status-unexchanged' });
+      items.push({ key: 'exchanged', label: '已交換', count: exchangedCount, enabled: true, className: 'status-exchanged' });
       return `
         <aside class="filter-sidebar">
-          ${items.map(item => `
-            <button class="filter-vtab ${state.filter === item.key ? 'active' : ''} ${!item.enabled ? 'disabled' : ''}" data-filter="${escapeHtml(item.key)}" ${!item.enabled ? 'disabled' : ''}>
+          ${items.map(item => {
+            if (item.divider) return `<span class="filter-divider" aria-hidden="true"></span>`;
+            return `
+            <button class="filter-vtab ${state.filter === item.key ? 'active' : ''} ${!item.enabled ? 'disabled' : ''} ${item.className || ''}" data-filter="${escapeHtml(item.key)}" ${!item.enabled ? 'disabled' : ''}>
               <span class="filter-vtab-label">${escapeHtml(item.label)}</span>
               <span class="badge">${item.count}</span>
-            </button>
-          `).join('')}
+            </button>`;
+          }).join('')}
         </aside>
       `;
     }
@@ -2720,7 +3691,9 @@
           exchangeItems: (entry.exchangeItems && entry.exchangeItems.length > 0)
             ? [...entry.exchangeItems] : [''],
           wanted: entry.wanted ? entry.wanted.map(w => ({ ...w })) : [],
-          notes: entry.notes || ''
+          notes: entry.notes || '',
+          photos: entry.photos ? [...entry.photos] : [],
+          exchangeStatus: entry.exchangeStatus || 'pending'
         };
       } else {
         state.editingId = null;
@@ -2729,7 +3702,9 @@
           threadsUrl: '',
           exchangeItems: [''],
           wanted: [],
-          notes: ''
+          notes: '',
+          photos: [],
+          exchangeStatus: 'pending'
         };
       }
       renderForm();
@@ -2846,9 +3821,42 @@
           </div>
 
           <div class="field">
+            <label>交換狀態</label>
+            <div class="status-toggle-row">
+              <button type="button" class="status-toggle-btn pending ${(f.exchangeStatus !== 'done') ? 'selected' : ''}" data-action="set-status" data-status="pending">
+                <span>✗</span>
+                <span>尚未交換</span>
+              </button>
+              <button type="button" class="status-toggle-btn done ${(f.exchangeStatus === 'done') ? 'selected' : ''}" data-action="set-status" data-status="done">
+                <span>✓</span>
+                <span>已交換</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="field">
             <label>備註</label>
             <textarea class="text-input" id="input-notes" rows="2"
                       placeholder="">${escapeHtml(f.notes)}</textarea>
+          </div>
+
+          <div class="field">
+            <label>照片（最多 3 張）</label>
+            <div class="photo-grid" id="photo-grid">
+              ${(f.photos || []).map((p, idx) => `
+                <div class="photo-slot filled" data-photo-idx="${idx}">
+                  <img src="${p}" alt="" data-action="view-photo" data-photo-idx="${idx}">
+                  <button class="photo-remove" data-action="remove-photo" data-photo-idx="${idx}" aria-label="移除">×</button>
+                </div>
+              `).join('')}
+              ${(f.photos || []).length < 3 ? `
+                <label class="photo-slot empty">
+                  <input type="file" accept="image/*" id="photo-upload-input" style="display:none">
+                  <span class="photo-add-icon">＋</span>
+                  <span class="photo-add-hint">上傳照片</span>
+                </label>
+              ` : ''}
+            </div>
           </div>
         </div>`;
     }
@@ -2862,7 +3870,9 @@
         threadsUrl: (document.getElementById('input-threads-url')?.value || '').trim(),
         exchangeItems: items,
         wanted: state.form.wanted.filter(w => w.quantity > 0),
-        notes: (document.getElementById('input-notes')?.value || '').trim()
+        notes: (document.getElementById('input-notes')?.value || '').trim(),
+        photos: state.form.photos || [],
+        exchangeStatus: state.form.exchangeStatus || 'pending'
       };
     }
 
@@ -2882,6 +3892,8 @@
         exchangeItems: data.exchangeItems,
         wanted: data.wanted,
         notes: data.notes,
+        photos: data.photos || [],
+        exchangeStatus: data.exchangeStatus || 'pending',
         createdAt: existing ? existing.createdAt : now,
         updatedAt: now
       };
@@ -3053,7 +4065,7 @@
           inventory: { '7/24': 0, '7/25': 0, '7/26': 0 }
         };
       }
-      renderSettings();
+      openSettings();
     }
 
 
@@ -3196,6 +4208,72 @@
           saveCategoryForm();
         }
         closeSettings();
+        return;
+      } else if (action === 'detail-view-photo') {
+        // Open full-screen photo viewer from detail page
+        const entry = state.entries.find(e => e.id === detailState.entryId);
+        if (entry && entry.photos && entry.photos.length > 0) {
+          const idx = parseInt(t.dataset.photoIdx, 10) || 0;
+          openPhotoViewer(entry.photos, idx);
+        }
+        return;
+      } else if (action === 'detail-edit') {
+        // Edit from detail menu: close detail, open form
+        const entry = state.entries.find(e => e.id === detailState.entryId);
+        if (entry) {
+          const entryId = entry.id;
+          closeDetail();
+          openForm(entry);
+        }
+        return;
+      } else if (action === 'detail-delete') {
+        // Delete from detail menu
+        const id = detailState.entryId;
+        if (!id) return;
+        customConfirm('確定要刪除嗎?', () => {
+          state.entries = state.entries.filter(x => x.id !== id);
+          persistEntries();
+          closeDetail();
+          render();
+        });
+        return;
+      } else if (action === 'open-detail') {
+        // Works for both list rows (tr) and grid cards (div) - both have data-id on the clickable element
+        const el = t.closest('[data-id]');
+        if (el && el.dataset.id) openDetail(el.dataset.id);
+        return;
+      } else if (action === 'view-photo') {
+        // View photo from form or record row
+        const idx = parseInt(t.dataset.photoIdx, 10) || 0;
+        const rowEl = t.closest('tr');
+        if (rowEl) {
+          // From record row - view all photos of that entry
+          const entryId = rowEl.dataset.id;
+          const entry = state.entries.find(x => x.id === entryId);
+          if (entry && entry.photos && entry.photos.length > 0) {
+            openPhotoViewer(entry.photos, idx);
+          }
+        } else if (state.form && state.form.photos) {
+          openPhotoViewer(state.form.photos, idx);
+        }
+        return;
+      } else if (action === 'remove-photo') {
+        const idx = parseInt(t.dataset.photoIdx, 10);
+        if (state.form.photos && idx >= 0 && idx < state.form.photos.length) {
+          syncFormStateFromDOM();
+          state.form.photos.splice(idx, 1);
+          renderForm();
+        }
+        return;
+      } else if (action === 'set-status') {
+        syncFormStateFromDOM();
+        state.form.exchangeStatus = t.dataset.status;
+        renderForm();
+        return;
+      } else if (action === 'set-view-mode') {
+        state.viewMode = t.dataset.view;
+        persistViewMode();
+        render();
         return;
       } else if (action === 'add-record') {
         openForm();
@@ -3361,8 +4439,350 @@
       });
     }
 
+
+    // ============== Photo upload / compression / viewer ==============
+    const PHOTO_MAX_WIDTH = 800;
+    const PHOTO_QUALITY = 0.72;
+    const PHOTO_MAX_COUNT = 3;
+
+    // Compress an uploaded image to a base64 JPEG data URI
+    function compressPhoto(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onerror = () => reject(new Error('讀取檔案失敗'));
+        reader.onload = () => {
+          const img = new Image();
+          img.onerror = () => reject(new Error('圖片載入失敗'));
+          img.onload = () => {
+            let w = img.width;
+            let h = img.height;
+            if (w > PHOTO_MAX_WIDTH) {
+              h = Math.round(h * (PHOTO_MAX_WIDTH / w));
+              w = PHOTO_MAX_WIDTH;
+            }
+            const canvas = document.createElement('canvas');
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, w, h);
+            ctx.drawImage(img, 0, 0, w, h);
+            try {
+              const dataUrl = canvas.toDataURL('image/jpeg', PHOTO_QUALITY);
+              resolve(dataUrl);
+            } catch (e) {
+              reject(e);
+            }
+          };
+          img.src = reader.result;
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    // Estimate localStorage remaining space (rough)
+    function checkStorageSpaceForPhoto(newDataUrl) {
+      try {
+        // Estimate: current used + new data size < ~4.5MB (safe under 5MB limit)
+        let used = 0;
+        for (const key in localStorage) {
+          if (localStorage.hasOwnProperty(key)) {
+            used += (localStorage[key].length + key.length) * 2; // UTF-16
+          }
+        }
+        const newSize = newDataUrl.length * 2;
+        return (used + newSize) < 4500000;
+      } catch (e) {
+        return true; // assume OK if check fails
+      }
+    }
+
+    // Handle photo file selection
+    async function handlePhotoUpload(file) {
+      if (!file || !file.type.startsWith('image/')) return;
+      if (!state.form.photos) state.form.photos = [];
+      if (state.form.photos.length >= PHOTO_MAX_COUNT) return;
+      try {
+        // Sync current form values first (name, notes, quantities)
+        syncFormStateFromDOM();
+        const dataUrl = await compressPhoto(file);
+        if (!checkStorageSpaceForPhoto(dataUrl)) {
+          customConfirm('放不下了 QQ，還要再麻煩刪減幾張照片', () => {});
+          return;
+        }
+        state.form.photos.push(dataUrl);
+        renderForm();
+      } catch (e) {
+        customConfirm('照片處理失敗：' + (e.message || '未知錯誤'), () => {});
+      }
+    }
+
+    // Listen for file input changes (delegated)
+    document.addEventListener('change', (e) => {
+      if (e.target && e.target.id === 'photo-upload-input') {
+        const file = e.target.files && e.target.files[0];
+        if (file) handlePhotoUpload(file);
+        e.target.value = ''; // reset so same file can be re-selected
+      }
+    });
+
+    // Photo viewer state
+    const photoViewerState = { photos: [], index: 0 };
+
+    function openPhotoViewer(photos, startIdx) {
+      photoViewerState.photos = photos || [];
+      photoViewerState.index = Math.max(0, Math.min(startIdx || 0, photoViewerState.photos.length - 1));
+      renderPhotoViewer();
+      const viewer = document.getElementById('photo-viewer');
+      viewer.classList.remove('hidden');
+      viewer.setAttribute('aria-hidden', 'false');
+    }
+
+    function closePhotoViewer() {
+      const viewer = document.getElementById('photo-viewer');
+      viewer.classList.add('hidden');
+      viewer.setAttribute('aria-hidden', 'true');
+    }
+
+    function renderPhotoViewer() {
+      const { photos, index } = photoViewerState;
+      const total = photos.length;
+      if (total === 0) return;
+      const img = document.getElementById('photo-viewer-img');
+      const counter = document.getElementById('photo-viewer-counter');
+      const prev = document.getElementById('photo-viewer-prev');
+      const next = document.getElementById('photo-viewer-next');
+      img.src = photos[index];
+      counter.textContent = `${index + 1} / ${total}`;
+      prev.disabled = index === 0;
+      next.disabled = index === total - 1;
+      // Hide nav if only 1 photo
+      prev.style.display = total > 1 ? 'flex' : 'none';
+      next.style.display = total > 1 ? 'flex' : 'none';
+      counter.style.display = total > 1 ? 'block' : 'none';
+    }
+
+    // Photo viewer event listeners
+    document.getElementById('photo-viewer-close').addEventListener('click', closePhotoViewer);
+    document.getElementById('photo-viewer-prev').addEventListener('click', () => {
+      if (photoViewerState.index > 0) {
+        photoViewerState.index--;
+        renderPhotoViewer();
+      }
+    });
+    document.getElementById('photo-viewer-next').addEventListener('click', () => {
+      if (photoViewerState.index < photoViewerState.photos.length - 1) {
+        photoViewerState.index++;
+        renderPhotoViewer();
+      }
+    });
+    document.getElementById('photo-viewer').addEventListener('click', (e) => {
+      if (e.target.id === 'photo-viewer') closePhotoViewer();
+    });
+    // ESC to close, arrows to navigate
+    document.addEventListener('keydown', (e) => {
+      const viewer = document.getElementById('photo-viewer');
+      if (viewer.classList.contains('hidden')) return;
+      if (e.key === 'Escape') closePhotoViewer();
+      if (e.key === 'ArrowLeft' && photoViewerState.index > 0) {
+        photoViewerState.index--;
+        renderPhotoViewer();
+      }
+      if (e.key === 'ArrowRight' && photoViewerState.index < photoViewerState.photos.length - 1) {
+        photoViewerState.index++;
+        renderPhotoViewer();
+      }
+    });
+
+
+    // ============== Detail view ==============
+    const detailState = { entryId: null };
+
+    function openDetail(entryId) {
+      detailState.entryId = entryId;
+      renderDetail();
+      const view = document.getElementById('detail-view');
+      view.classList.remove('hidden');
+      view.setAttribute('aria-hidden', 'false');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeDetail() {
+      const view = document.getElementById('detail-view');
+      view.classList.add('hidden');
+      view.setAttribute('aria-hidden', 'true');
+      document.body.style.overflow = '';
+      detailState.entryId = null;
+    }
+
+    function renderDetail() {
+      const entry = state.entries.find(e => e.id === detailState.entryId);
+      if (!entry) { closeDetail(); return; }
+
+      const titleEl = document.getElementById('detail-title');
+      const bodyEl = document.getElementById('detail-body');
+
+      // Title = username link (Threads profile), or fallback
+      const username = entry.threadsUsername || '';
+      const profileUrl = entry.profileUrl || '';
+      if (username && profileUrl) {
+        titleEl.innerHTML = `<a href="${escapeHtml(profileUrl)}" target="_blank" rel="noopener noreferrer">@${escapeHtml(username)}<span class="ext-icon">${ICONS.ext}</span></a>`;
+      } else if (username) {
+        titleEl.textContent = '@' + username;
+      } else {
+        titleEl.textContent = entry.date;
+      }
+
+      // Photo carousel (swipeable, all photos accessible without opening viewer)
+      const photos = entry.photos || [];
+      let photoHtml = '';
+      if (photos.length > 0) {
+        const slidesHtml = photos.map((p, idx) => `
+          <div class="detail-photo-slide">
+            <img src="${p}" alt="" data-action="detail-view-photo" data-photo-idx="${idx}">
+          </div>
+        `).join('');
+        const dotsHtml = photos.length > 1
+          ? `<div class="detail-photo-dots" id="detail-photo-dots">
+               ${photos.map((_, idx) => `<span class="detail-photo-dot ${idx === 0 ? 'active' : ''}" data-slide-idx="${idx}"></span>`).join('')}
+             </div>`
+          : '';
+        photoHtml = `
+          <div class="detail-photo-card">
+            <div class="detail-photo-carousel" id="detail-photo-carousel">${slidesHtml}</div>
+            ${photos.length > 1 ? `<div class="detail-photo-counter" id="detail-photo-counter">1/${photos.length}</div>` : ''}
+            ${dotsHtml}
+          </div>
+        `;
+      } else {
+        photoHtml = `
+          <div class="detail-photo-card no-photo">
+            <div class="detail-photo-empty">— 沒有照片 —</div>
+          </div>
+        `;
+      }
+
+      // Fields
+      const items = entry.exchangeItems || [];
+      const itemsHtml = items.length > 0
+        ? `<div class="detail-row-value multi">${items.map(i => `<span>${escapeHtml(i)}</span>`).join('')}</div>`
+        : `<div class="detail-row-value" style="color:var(--text-muted)">—</div>`;
+
+      let wantedHtml;
+      if (entry.wanted && entry.wanted.length > 0) {
+        wantedHtml = `
+          <div class="detail-row-value">
+            <div class="detail-wanted-chips">
+              ${entry.wanted.map(w => {
+                const cat = getCategoryById(w.categoryId);
+                if (!cat) return '';
+                const palette = CATEGORY_COLOR_PALETTE[cat.color % CATEGORY_COLOR_PALETTE.length];
+                return `<span class="wanted-chip" style="background:${palette.bg};color:${palette.text};border-color:${palette.border}">
+                  <span class="wanted-chip-icon">${renderCatIcon(cat.icon, 18)}</span>
+                  ${escapeHtml(cat.name)}${w.quantity > 1 ? '<span class="qty-badge">×' + w.quantity + '</span>' : ''}
+                </span>`;
+              }).filter(Boolean).join('')}
+            </div>
+          </div>
+        `;
+      } else {
+        wantedHtml = `<div class="detail-row-value" style="color:var(--text-muted)">—</div>`;
+      }
+
+      const status = entry.exchangeStatus || 'pending';
+      const statusHtml = status === 'done'
+        ? `<span class="status-badge done">✓ 已交換</span>`
+        : `<span class="status-badge pending">✗ 尚未交換</span>`;
+
+      const dateText = dateLabel(entry.date);
+      const threadsLinkHtml = entry.threadsUrl
+        ? `<a href="${escapeHtml(entry.threadsUrl)}" target="_blank" rel="noopener noreferrer">查看貼文<span class="ext-icon">${ICONS.ext}</span></a>`
+        : `<span style="color:var(--text-muted)">—</span>`;
+      const notesHtml = entry.notes
+        ? `<div class="detail-row-value">${escapeHtml(entry.notes)}</div>`
+        : `<div class="detail-row-value" style="color:var(--text-muted)">—</div>`;
+
+      bodyEl.innerHTML = `
+        ${photoHtml}
+        <div class="detail-fields">
+          <div class="detail-row">
+            <div class="detail-row-label">對方提供</div>
+            ${itemsHtml}
+          </div>
+          <div class="detail-row">
+            <div class="detail-row-label">我要帶去換</div>
+            ${wantedHtml}
+          </div>
+        </div>
+        <div class="detail-fields">
+          <div class="detail-row">
+            <div class="detail-row-label">交換日期</div>
+            <div class="detail-row-value">${escapeHtml(dateText)}</div>
+          </div>
+          <div class="detail-row">
+            <div class="detail-row-label">貼文連結</div>
+            <div class="detail-row-value">${threadsLinkHtml}</div>
+          </div>
+          <div class="detail-row">
+            <div class="detail-row-label">交換狀態</div>
+            <div class="detail-row-value">${statusHtml}</div>
+          </div>
+          <div class="detail-row">
+            <div class="detail-row-label">備註</div>
+            ${notesHtml}
+          </div>
+        </div>
+      `;
+    
+      // Wire up carousel scroll → update counter + dots
+      const carousel = document.getElementById('detail-photo-carousel');
+      const counter = document.getElementById('detail-photo-counter');
+      const dotsBox = document.getElementById('detail-photo-dots');
+      if (carousel && (entry.photos || []).length > 1) {
+        const updateFromScroll = () => {
+          const idx = Math.round(carousel.scrollLeft / carousel.clientWidth);
+          if (counter) counter.textContent = `${idx + 1}/${entry.photos.length}`;
+          if (dotsBox) {
+            dotsBox.querySelectorAll('.detail-photo-dot').forEach((d, i) => {
+              d.classList.toggle('active', i === idx);
+            });
+          }
+        };
+        carousel.addEventListener('scroll', updateFromScroll, { passive: true });
+        // Allow dot click to jump
+        if (dotsBox) {
+          dotsBox.querySelectorAll('.detail-photo-dot').forEach(dot => {
+            dot.addEventListener('click', (e) => {
+              const idx = parseInt(dot.dataset.slideIdx, 10);
+              carousel.scrollTo({ left: idx * carousel.clientWidth, behavior: 'smooth' });
+            });
+          });
+        }
+      }
+    }
+
+    // Event listeners for detail view
+    document.getElementById('detail-back').addEventListener('click', closeDetail);
+    // (menu removed; edit/delete are direct buttons now)
+
+
+    // Populate detail header edit/delete icons
+    (function() {
+      const editBtn = document.getElementById('detail-edit-btn');
+      const deleteBtn = document.getElementById('detail-delete-btn');
+      if (editBtn) editBtn.innerHTML = ICONS.pencil;
+      if (deleteBtn) deleteBtn.innerHTML = ICONS.trash;
+      // FAB uses a plus icon
+      const plusSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
+      const fab = document.getElementById('fab-add-record');
+      if (fab) fab.innerHTML = plusSvg;
+      const fabCat = document.getElementById('fab-add-category');
+      if (fabCat) fabCat.innerHTML = plusSvg;
+    })();
+
     // ============== Init ==============
     loadEnabledDates();
+    loadViewMode();
     loadCategories();
     loadEntries();
     migrateCategoriesAndEntries();
@@ -3393,6 +4813,42 @@
     });
 
 
+
+    // ============== Version tracking / update modal ==============
+    const APP_VERSION = 'V1.3.0';
+    const LAST_SEEN_VERSION_KEY = 'dxs-last-seen-version';
+
+    function shouldShowUpdate() {
+      try {
+        const lastSeen = localStorage.getItem(LAST_SEEN_VERSION_KEY);
+        if (lastSeen === APP_VERSION) return false; // already saw this version
+        if (lastSeen) return true; // upgrading from older version
+        // No last-seen: check if returning user (has data or already dismissed notice)
+        const hasData = state.entries.length > 0 || state.categories.length > 0;
+        const dismissedNotice = localStorage.getItem(NOTICE_DISMISSED_KEY) === '1';
+        return hasData || dismissedNotice;
+      } catch (e) { return false; }
+    }
+
+    function openUpdate() {
+      const overlay = document.getElementById('update-overlay');
+      overlay.classList.remove('hidden');
+      overlay.setAttribute('aria-hidden', 'false');
+    }
+
+    function closeUpdate() {
+      const overlay = document.getElementById('update-overlay');
+      overlay.classList.add('hidden');
+      overlay.setAttribute('aria-hidden', 'true');
+      try { localStorage.setItem(LAST_SEEN_VERSION_KEY, APP_VERSION); } catch (e) {}
+    }
+
+    document.getElementById('update-ok').addEventListener('click', closeUpdate);
+    document.getElementById('update-close').addEventListener('click', closeUpdate);
+    document.getElementById('update-overlay').addEventListener('click', (e) => {
+      if (e.target === document.getElementById('update-overlay')) closeUpdate();
+    });
+
     // Notice tab switching
     document.querySelectorAll('.notice-tab').forEach(tab => {
       tab.addEventListener('click', () => {
@@ -3407,9 +4863,11 @@
       });
     });
 
-    // Show notice on load if not dismissed
+    // Show update modal (upgrade) OR notice (first time) - not both
     try {
-      if (localStorage.getItem(NOTICE_DISMISSED_KEY) !== '1') {
+      if (shouldShowUpdate()) {
+        openUpdate();
+      } else if (localStorage.getItem(NOTICE_DISMISSED_KEY) !== '1') {
         openNotice();
       }
     } catch(e) {
