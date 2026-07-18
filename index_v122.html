@@ -2606,140 +2606,6 @@
       .update-item-desc { font-size: 11px; }
     }
 
-        /* Service Worker update banner */
-    .update-banner {
-      position: fixed;
-      left: 50%;
-      transform: translateX(-50%);
-      bottom: calc(20px + env(safe-area-inset-bottom));
-      z-index: 30;
-      max-width: 92vw;
-      animation: updateBannerIn 0.3s ease-out;
-    }
-    .update-banner.hidden { display: none; }
-    @keyframes updateBannerIn {
-      from { transform: translate(-50%, 30px); opacity: 0; }
-      to { transform: translate(-50%, 0); opacity: 1; }
-    }
-    .update-banner-content {
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
-      padding: 10px 8px 10px 16px;
-      background: var(--navy);
-      color: var(--navy-fg);
-      border-radius: 999px;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.35);
-      border: 1px solid rgba(201, 169, 97, 0.35);
-    }
-    .update-banner-icon {
-      font-size: 15px;
-      line-height: 1;
-    }
-    .update-banner-text {
-      font-size: 13px;
-      font-weight: 600;
-      white-space: nowrap;
-    }
-    .update-banner-btn {
-      background: var(--gold);
-      color: var(--navy);
-      border: none;
-      padding: 6px 14px;
-      border-radius: 999px;
-      font-size: 13px;
-      font-weight: 800;
-      cursor: pointer;
-      letter-spacing: 0.05em;
-    }
-    .update-banner-btn:hover {
-      background: var(--gold-bright);
-    }
-    .update-banner-later {
-      background: transparent;
-      border: none;
-      color: var(--navy-fg);
-      opacity: 0.6;
-      font-size: 18px;
-      width: 26px;
-      height: 26px;
-      border-radius: 50%;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .update-banner-later:hover {
-      opacity: 1;
-      background: rgba(255,255,255,0.1);
-    }
-
-    /* Push FAB up when banner is visible (avoid overlap) */
-    .update-banner:not(.hidden) ~ .fab,
-    body:has(.update-banner:not(.hidden)) .fab {
-      transform: translateY(-52px);
-    }
-
-    @media (max-width: 480px) {
-      .update-banner-content { padding: 9px 6px 9px 14px; gap: 8px; }
-      .update-banner-text { font-size: 12px; }
-      .update-banner-btn { padding: 5px 12px; font-size: 12px; }
-    }
-
-        /* Photo migration overlay (one-time) */
-    .migration-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(20, 30, 45, 0.85);
-      backdrop-filter: blur(6px);
-      -webkit-backdrop-filter: blur(6px);
-      z-index: 45;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
-    }
-    .migration-overlay.hidden { display: none; }
-    .migration-dialog {
-      background: var(--surface);
-      border-radius: 16px;
-      padding: 28px 24px;
-      max-width: 300px;
-      width: 100%;
-      text-align: center;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
-    }
-    .migration-icon {
-      font-size: 40px;
-      margin-bottom: 12px;
-    }
-    .migration-title {
-      font-size: 15px;
-      font-weight: 800;
-      color: var(--navy);
-      margin-bottom: 16px;
-      letter-spacing: 0.03em;
-    }
-    .migration-progress-bar {
-      background: var(--surface-alt);
-      height: 8px;
-      border-radius: 999px;
-      overflow: hidden;
-      margin-bottom: 8px;
-    }
-    .migration-progress-fill {
-      background: var(--gold);
-      height: 100%;
-      width: 0%;
-      transition: width 0.2s;
-      border-radius: 999px;
-    }
-    .migration-progress-text {
-      font-size: 12px;
-      color: var(--text-muted);
-      font-weight: 600;
-    }
-
     /* ===== Butterflies (top-down, symmetric) ===== */
     .butterflies {
       position: fixed;
@@ -2911,17 +2777,8 @@
   <button class="fab hidden" id="fab-add-category" data-action="add-category" aria-label="新增類別"></button>
 
   <footer class="app-footer">
-    <div class="container">V1.3.0</div>
+    <div class="container">V1.2.2</div>
   </footer>
-
-  <div class="update-banner hidden" id="update-banner">
-    <div class="update-banner-content">
-      <span class="update-banner-icon">✨</span>
-      <span class="update-banner-text">有新版本可用</span>
-      <button class="update-banner-btn" id="update-banner-ok">更新</button>
-      <button class="update-banner-later" id="update-banner-later" aria-label="關閉">×</button>
-    </div>
-  </div>
 
 
 
@@ -2932,18 +2789,6 @@
 
   <div class="modal hidden" id="settings-modal">
     <div class="modal-content" id="settings-content"></div>
-  </div>
-
-
-  <div class="migration-overlay hidden" id="migration-overlay" aria-hidden="true">
-    <div class="migration-dialog">
-      <div class="migration-icon">📸</div>
-      <div class="migration-title">整理照片中，請稍候⋯</div>
-      <div class="migration-progress-bar">
-        <div class="migration-progress-fill" id="migration-percent"></div>
-      </div>
-      <div class="migration-progress-text" id="migration-progress">0 / 0</div>
-    </div>
   </div>
 
   <div class="confirm-overlay hidden" id="confirm-overlay" aria-hidden="true">
@@ -2979,7 +2824,7 @@
   <div class="notice-overlay hidden" id="update-overlay" aria-hidden="true">
     <div class="notice-dialog update-dialog">
       <div class="notice-header">
-        <div class="notice-title">✨ V1.3.0 更新內容</div>
+        <div class="notice-title">✨ V1.2.2 更新內容</div>
         <button class="notice-close" id="update-close" aria-label="關閉">×</button>
       </div>
       <div class="notice-body">
@@ -4588,62 +4433,17 @@
       }
     });
 
-    // ============== Service Worker (offline + auto-update) ==============
+    // ============== Service Worker (offline) ==============
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('sw.js').then((reg) => {
-          // Poll for updates every 60 seconds while app is open
-          setInterval(() => reg.update().catch(() => {}), 60000);
-
-          // Case A: A new SW is already waiting when app loads
-          if (reg.waiting && navigator.serviceWorker.controller) {
-            showUpdateBanner(reg.waiting);
-          }
-
-          // Case B: A new SW is being installed → wait for it to become "installed"
-          reg.addEventListener('updatefound', () => {
-            const newSW = reg.installing;
-            if (!newSW) return;
-            newSW.addEventListener('statechange', () => {
-              if (newSW.state === 'installed' && navigator.serviceWorker.controller) {
-                // New version installed, waiting to activate
-                showUpdateBanner(newSW);
-              }
-            });
-          });
-        }).catch(err => console.log('SW registration failed:', err));
-
-        // When new SW takes control, reload the page once to get fresh code
-        let reloading = false;
-        navigator.serviceWorker.addEventListener('controllerchange', () => {
-          if (reloading) return;
-          reloading = true;
-          window.location.reload();
-        });
+        navigator.serviceWorker.register('sw.js').catch(err => console.log('SW registration failed:', err));
       });
-    }
-
-    function showUpdateBanner(waitingSW) {
-      const banner = document.getElementById('update-banner');
-      if (!banner) return;
-      banner.classList.remove('hidden');
-      const okBtn = document.getElementById('update-banner-ok');
-      const laterBtn = document.getElementById('update-banner-later');
-      okBtn.onclick = () => {
-        banner.classList.add('hidden');
-        // Tell the waiting SW to skip waiting and take over
-        waitingSW.postMessage({ type: 'SKIP_WAITING' });
-        // controllerchange listener above will reload the page
-      };
-      laterBtn.onclick = () => {
-        banner.classList.add('hidden');
-      };
     }
 
 
     // ============== Photo upload / compression / viewer ==============
-    const PHOTO_MAX_WIDTH = 350;
-    const PHOTO_QUALITY = 0.45;
+    const PHOTO_MAX_WIDTH = 800;
+    const PHOTO_QUALITY = 0.72;
     const PHOTO_MAX_COUNT = 3;
 
     // Compress an uploaded image to a base64 JPEG data URI
@@ -5015,103 +4815,8 @@
 
 
 
-
-    // ============== One-time photo recompression migration ==============
-    const PHOTOS_MIGRATED_KEY = 'dxs-photos-migrated-v3';
-
-    // Recompress a single base64 data URI to match current PHOTO_MAX_WIDTH / PHOTO_QUALITY
-    function recompressPhoto(dataUri) {
-      return new Promise((resolve) => {
-        const img = new Image();
-        img.onload = () => {
-          let w = img.width;
-          let h = img.height;
-          // Only downsize if larger than target
-          if (w > PHOTO_MAX_WIDTH) {
-            h = Math.round(h * (PHOTO_MAX_WIDTH / w));
-            w = PHOTO_MAX_WIDTH;
-          }
-          const canvas = document.createElement('canvas');
-          canvas.width = w;
-          canvas.height = h;
-          const ctx = canvas.getContext('2d');
-          ctx.fillStyle = '#ffffff';
-          ctx.fillRect(0, 0, w, h);
-          ctx.drawImage(img, 0, 0, w, h);
-          try {
-            const out = canvas.toDataURL('image/jpeg', PHOTO_QUALITY);
-            // Only replace if the new version is actually smaller (safety net)
-            resolve(out.length < dataUri.length ? out : dataUri);
-          } catch (e) {
-            resolve(dataUri);  // keep original on error
-          }
-        };
-        img.onerror = () => resolve(dataUri);  // keep original on error
-        img.src = dataUri;
-      });
-    }
-
-    async function runPhotoMigration() {
-      try {
-        if (localStorage.getItem(PHOTOS_MIGRATED_KEY) === '1') return;
-
-        // Count photos to process
-        let totalPhotos = 0;
-        state.entries.forEach(e => {
-          if (Array.isArray(e.photos)) totalPhotos += e.photos.length;
-        });
-        if (totalPhotos === 0) {
-          localStorage.setItem(PHOTOS_MIGRATED_KEY, '1');
-          return;
-        }
-
-        // Show progress overlay
-        const overlay = document.getElementById('migration-overlay');
-        const progressEl = document.getElementById('migration-progress');
-        const percentEl = document.getElementById('migration-percent');
-        if (overlay) {
-          overlay.classList.remove('hidden');
-          progressEl.textContent = `0 / ${totalPhotos}`;
-          percentEl.style.width = '0%';
-        }
-
-        let done = 0;
-        for (const entry of state.entries) {
-          if (!Array.isArray(entry.photos) || entry.photos.length === 0) continue;
-          const newPhotos = [];
-          for (const p of entry.photos) {
-            const recompressed = await recompressPhoto(p);
-            newPhotos.push(recompressed);
-            done++;
-            if (progressEl) progressEl.textContent = `${done} / ${totalPhotos}`;
-            if (percentEl) percentEl.style.width = `${Math.round(done / totalPhotos * 100)}%`;
-          }
-          entry.photos = newPhotos;
-        }
-
-        // Persist and mark done
-        persistEntries();
-        localStorage.setItem(PHOTOS_MIGRATED_KEY, '1');
-
-        // Small delay so user sees "完成" briefly
-        if (progressEl) progressEl.textContent = '完成！';
-        await new Promise(r => setTimeout(r, 600));
-
-        if (overlay) overlay.classList.add('hidden');
-        render();
-      } catch (e) {
-        // On error, hide overlay and don't retry (avoid re-running on next open)
-        const overlay = document.getElementById('migration-overlay');
-        if (overlay) overlay.classList.add('hidden');
-        console.log('Photo migration error:', e);
-      }
-    }
-
-    // Run migration after initial render, but before user starts interacting
-    setTimeout(runPhotoMigration, 500);
-
     // ============== Version tracking / update modal ==============
-    const APP_VERSION = 'V1.3.0';
+    const APP_VERSION = 'V1.2.2';
     const LAST_SEEN_VERSION_KEY = 'dxs-last-seen-version';
 
     function shouldShowUpdate() {
@@ -5159,11 +4864,9 @@
       });
     });
 
-    // Show update modal (upgrade) OR notice (first time) - not both
+    // Show notice on load if not dismissed (V1.2.2 behavior)
     try {
-      if (shouldShowUpdate()) {
-        openUpdate();
-      } else if (localStorage.getItem(NOTICE_DISMISSED_KEY) !== '1') {
+      if (localStorage.getItem(NOTICE_DISMISSED_KEY) !== '1') {
         openNotice();
       }
     } catch(e) {
