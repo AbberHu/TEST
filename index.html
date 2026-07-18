@@ -2985,28 +2985,16 @@
       <div class="notice-body">
         <ul class="update-list">
           <li>
-            <div class="update-item-title">📸 照片功能</div>
-            <div class="update-item-desc">每筆紀錄可上傳 3 張照片，詳細頁可左右滑動看大圖</div>
+            <div class="update-item-title">📸 照片存到大空間</div>
+            <div class="update-item-desc">照片改存 IndexedDB（容量從 5MB 提升到 50MB+），可以塞更多筆</div>
           </li>
           <li>
-            <div class="update-item-title">📋 詳細頁面</div>
-            <div class="update-item-desc">點紀錄卡看完整資訊，直接編輯 / 刪除</div>
+            <div class="update-item-title">🖼 照片畫質提升</div>
+            <div class="update-item-desc">新上傳的照片變更清楚（800px / 75%），舊照片保留原樣</div>
           </li>
           <li>
-            <div class="update-item-title">🔀 清單 / 格狀切換</div>
-            <div class="update-item-desc">「交換記錄」右上角切換兩種瀏覽模式，記住偏好</div>
-          </li>
-          <li>
-            <div class="update-item-title">✓ ✗ 交換狀態</div>
-            <div class="update-item-desc">標記已交換 / 未交換，側邊欄新增狀態過濾</div>
-          </li>
-          <li>
-            <div class="update-item-title">📦 應援物統計</div>
-            <div class="update-item-desc">點類別直接編輯、各日期獨立卡片</div>
-          </li>
-          <li>
-            <div class="update-item-title">➕ FAB 浮動新增鈕</div>
-            <div class="update-item-desc">右下角快速新增，避免清單長不好找按鈕</div>
+            <div class="update-item-title">🔒 30 天備份</div>
+            <div class="update-item-desc">舊照片會在原地保留 30 天當備份，之後才會清掉</div>
           </li>
         </ul>
       </div>
@@ -3573,7 +3561,7 @@
 
     function renderGridCard(e) {
       const username = e.threadsUsername || '';
-      const firstPhoto = (e.photos && e.photos.length > 0) ? e.photos[0] : null;
+      const firstPhoto = (e.photos && e.photos.length > 0) ? getPhotoDataUri(e.photos[0]) : null;
       const photoBlock = firstPhoto
         ? `<img class="grid-card-photo" src="${firstPhoto}" alt="">`
         : `<div class="grid-card-photo grid-card-photo-empty">— 沒有照片 —</div>`;
@@ -3660,8 +3648,8 @@
               <div class="status-mark ${(e.exchangeStatus === 'done') ? 'done' : 'pending'}">${(e.exchangeStatus === 'done') ? '✓' : '✗'}</div>
             </td>
             <td class="record-thumb-cell">
-              ${(e.photos && e.photos.length > 0)
-                ? `<img class="record-thumb" src="${e.photos[0]}" alt="" data-action="view-photo" data-photo-idx="0">`
+              ${(e.photos && e.photos.length > 0 && getPhotoDataUri(e.photos[0]))
+                ? `<img class="record-thumb" src="${getPhotoDataUri(e.photos[0])}" alt="" data-action="view-photo" data-photo-idx="0">`
                 : `<span class="empty-cell">—</span>`}
             </td>
             <td style="min-width:130px">
@@ -3841,6 +3829,13 @@
     function openForm(entry) {
       if (entry) {
         state.editingId = entry.id;
+        const photoRefsArr = Array.isArray(entry.photos) ? entry.photos : [];
+        const resolvedPhotos = photoRefsArr.map(getPhotoDataUri).filter(x => x);
+        // Build parallel arrays: photos = data URIs for display, photoRefs = original refs
+        const resolvedRefs = [];
+        photoRefsArr.forEach(r => {
+          if (getPhotoDataUri(r)) resolvedRefs.push(r);  // only keep refs that resolve
+        });
         state.form = {
           date: entry.date,
           threadsUrl: entry.threadsUrl || '',
@@ -3848,7 +3843,8 @@
             ? [...entry.exchangeItems] : [''],
           wanted: entry.wanted ? entry.wanted.map(w => ({ ...w })) : [],
           notes: entry.notes || '',
-          photos: entry.photos ? [...entry.photos] : [],
+          photos: resolvedPhotos,
+          photoRefs: resolvedRefs,  // parallel to photos; null for new (unsaved) photos
           exchangeStatus: entry.exchangeStatus || 'pending'
         };
       } else {
@@ -3860,6 +3856,7 @@
           wanted: [],
           notes: '',
           photos: [],
+          photoRefs: [],  // parallel to photos
           exchangeStatus: 'pending'
         };
       }
@@ -4032,15 +4029,56 @@
       };
     }
 
-    function saveForm() {
+    async function saveForm() {
       const data = collectFormData();
       if (!data.threadsUrl && data.exchangeItems.length === 0 && (!data.wanted || data.wanted.length === 0)) return;
       const parsed = parseThreadsUrl(data.threadsUrl);
       const now = Date.now();
       const existing = state.editingId ? state.entries.find(e => e.id === state.editingId) : null;
+      const entryId = state.editingId || now.toString();
+
+      // ========== Photo persistence: reconcile form.photos + form.photoRefs with IDB ==========
+      // For each photo in the form:
+      //   - If photoRefs[i] exists (already saved) -> keep the ref
+      //   - If photoRefs[i] is null (newly uploaded) -> save data URI to IDB, get new ref
+      const formPhotos = state.form.photos || [];
+      const formRefs = Array.isArray(state.form.photoRefs) ? state.form.photoRefs : [];
+      const finalRefs = [];
+      for (let i = 0; i < formPhotos.length; i++) {
+        const existingRef = formRefs[i];
+        if (existingRef) {
+          finalRefs.push(existingRef);
+          continue;
+        }
+        // New photo - save to IDB
+        try {
+          const key = makePhotoKey(entryId, i);
+          await idbPutPhoto(key, formPhotos[i]);
+          const ref = IDB_KEY_PREFIX + key;
+          finalRefs.push(ref);
+          photoCache.set(ref, formPhotos[i]);  // populate cache
+        } catch (e) {
+          console.log('Failed to save photo to IDB:', e);
+          // Fall back to raw base64 in localStorage (legacy path)
+          finalRefs.push(formPhotos[i]);
+        }
+      }
+
+      // Delete photos that were removed (existed in old entry, gone from new)
+      if (existing && Array.isArray(existing.photos)) {
+        const oldRefs = existing.photos;
+        for (const oldRef of oldRefs) {
+          if (typeof oldRef !== 'string') continue;
+          if (finalRefs.includes(oldRef)) continue;  // still used
+          if (oldRef.startsWith(IDB_KEY_PREFIX)) {
+            try { await idbDeletePhoto(oldRef.substring(IDB_KEY_PREFIX.length)); } catch (e) {}
+            photoCache.delete(oldRef);
+          }
+        }
+      }
 
       const newEntry = {
-        id: state.editingId || now.toString(),
+        id: entryId,
         date: data.date,
         threadsUrl: data.threadsUrl,
         threadsUsername: parsed ? parsed.username : '',
@@ -4048,7 +4086,7 @@
         exchangeItems: data.exchangeItems,
         wanted: data.wanted,
         notes: data.notes,
-        photos: data.photos || [],
+        photos: finalRefs,   // refs, not raw data URIs
         exchangeStatus: data.exchangeStatus || 'pending',
         createdAt: existing ? existing.createdAt : now,
         updatedAt: now
@@ -4370,7 +4408,8 @@
         const entry = state.entries.find(e => e.id === detailState.entryId);
         if (entry && entry.photos && entry.photos.length > 0) {
           const idx = parseInt(t.dataset.photoIdx, 10) || 0;
-          openPhotoViewer(entry.photos, idx);
+          const resolved = entry.photos.map(getPhotoDataUri).filter(x => x);
+          openPhotoViewer(resolved, idx);
         }
         return;
       } else if (action === 'detail-edit') {
@@ -4386,7 +4425,17 @@
         // Delete from detail menu
         const id = detailState.entryId;
         if (!id) return;
-        customConfirm('確定要刪除嗎?', () => {
+        customConfirm('確定要刪除嗎?', async () => {
+          // Clean up IDB photos for this entry
+          const target = state.entries.find(x => x.id === id);
+          if (target && Array.isArray(target.photos)) {
+            for (const ref of target.photos) {
+              if (typeof ref === 'string' && ref.startsWith(IDB_KEY_PREFIX)) {
+                try { await idbDeletePhoto(ref.substring(IDB_KEY_PREFIX.length)); } catch (e) {}
+                photoCache.delete(ref);
+              }
+            }
+          }
           state.entries = state.entries.filter(x => x.id !== id);
           persistEntries();
           closeDetail();
@@ -4407,7 +4456,8 @@
           const entryId = rowEl.dataset.id;
           const entry = state.entries.find(x => x.id === entryId);
           if (entry && entry.photos && entry.photos.length > 0) {
-            openPhotoViewer(entry.photos, idx);
+            const resolved = entry.photos.map(getPhotoDataUri).filter(x => x);
+            openPhotoViewer(resolved, idx);
           }
         } else if (state.form && state.form.photos) {
           openPhotoViewer(state.form.photos, idx);
@@ -4418,6 +4468,7 @@
         if (state.form.photos && idx >= 0 && idx < state.form.photos.length) {
           syncFormStateFromDOM();
           state.form.photos.splice(idx, 1);
+          if (Array.isArray(state.form.photoRefs)) state.form.photoRefs.splice(idx, 1);
           renderForm();
         }
         return;
@@ -4642,8 +4693,8 @@
 
 
     // ============== Photo upload / compression / viewer ==============
-    const PHOTO_MAX_WIDTH = 350;
-    const PHOTO_QUALITY = 0.45;
+    const PHOTO_MAX_WIDTH = 800;
+    const PHOTO_QUALITY = 0.75;
     const PHOTO_MAX_COUNT = 3;
 
     // Compress an uploaded image to a base64 JPEG data URI
@@ -4707,11 +4758,11 @@
         // Sync current form values first (name, notes, quantities)
         syncFormStateFromDOM();
         const dataUrl = await compressPhoto(file);
-        if (!checkStorageSpaceForPhoto(dataUrl)) {
-          customConfirm('放不下了 QQ，還要再麻煩刪減幾張照片', () => {});
-          return;
-        }
+        // With IDB, we don't need to worry about localStorage space for photos anymore
+        // (photos go to IDB which has 50-100MB). But keep a safety check for extreme cases.
         state.form.photos.push(dataUrl);
+        if (!Array.isArray(state.form.photoRefs)) state.form.photoRefs = [];
+        state.form.photoRefs.push(null);  // null = new photo, will be saved to IDB on form save
         renderForm();
       } catch (e) {
         customConfirm('照片處理失敗：' + (e.message || '未知錯誤'), () => {});
@@ -4835,7 +4886,8 @@
       }
 
       // Photo carousel (swipeable, all photos accessible without opening viewer)
-      const photos = entry.photos || [];
+      const photoRefs = entry.photos || [];
+      const photos = photoRefs.map(getPhotoDataUri).filter(x => x);
       let photoHtml = '';
       if (photos.length > 0) {
         const slidesHtml = photos.map((p, idx) => `
@@ -4939,10 +4991,10 @@
       const carousel = document.getElementById('detail-photo-carousel');
       const counter = document.getElementById('detail-photo-counter');
       const dotsBox = document.getElementById('detail-photo-dots');
-      if (carousel && (entry.photos || []).length > 1) {
+      if (carousel && photos.length > 1) {
         const updateFromScroll = () => {
           const idx = Math.round(carousel.scrollLeft / carousel.clientWidth);
-          if (counter) counter.textContent = `${idx + 1}/${entry.photos.length}`;
+          if (counter) counter.textContent = `${idx + 1}/${photos.length}`;
           if (dotsBox) {
             dotsBox.querySelectorAll('.detail-photo-dot').forEach((d, i) => {
               d.classList.toggle('active', i === idx);
@@ -4988,6 +5040,11 @@
     loadEntries();
     migrateCategoriesAndEntries();
     render();
+    // Preload IDB photos into cache; when done, re-render to fill in images.
+    // (Rendering shows empty until cache is populated, then swaps to real images.)
+    preloadPhotoCache().then(() => {
+      render();
+    }).catch(e => console.log('Photo preload failed:', e));
     // ============== Notice modal ==============
     const NOTICE_DISMISSED_KEY = 'dxs-notice-dismissed-v1';
 
@@ -5016,7 +5073,265 @@
 
 
 
-    // ============== One-time photo recompression migration ==============
+
+    // ============== IndexedDB photo storage layer ==============
+    // Photos are stored in IDB (~50-100MB capacity vs localStorage 5MB).
+    // Entry.photos becomes an array of IDB keys like "photo_abc123_0" instead of raw base64.
+    const IDB_NAME = 'dxs-photos-db';
+    const IDB_VERSION = 1;
+    const IDB_STORE = 'photos';
+    const IDB_KEY_PREFIX = 'idb:';   // photos stored in IDB have keys prefixed with this
+    const LEGACY_BACKUP_KEY = 'dxs-legacy-photos-backup';  // 30-day safety backup
+    const LEGACY_BACKUP_EXPIRES_KEY = 'dxs-legacy-photos-backup-expires';
+    const IDB_MIGRATION_KEY = 'dxs-idb-migration-done';
+
+    let _idbPromise = null;
+
+    function openPhotoDb() {
+      if (_idbPromise) return _idbPromise;
+      _idbPromise = new Promise((resolve, reject) => {
+        if (!window.indexedDB) { reject(new Error('IndexedDB unavailable')); return; }
+        const req = indexedDB.open(IDB_NAME, IDB_VERSION);
+        req.onupgradeneeded = (e) => {
+          const db = e.target.result;
+          if (!db.objectStoreNames.contains(IDB_STORE)) {
+            db.createObjectStore(IDB_STORE);
+          }
+        };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+      return _idbPromise;
+    }
+
+    async function idbPutPhoto(key, dataUri) {
+      const db = await openPhotoDb();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(IDB_STORE, 'readwrite');
+        tx.objectStore(IDB_STORE).put(dataUri, key);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+        tx.onabort = () => reject(tx.error || new Error('IDB tx aborted'));
+      });
+    }
+
+    async function idbGetPhoto(key) {
+      const db = await openPhotoDb();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(IDB_STORE, 'readonly');
+        const req = tx.objectStore(IDB_STORE).get(key);
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    async function idbDeletePhoto(key) {
+      const db = await openPhotoDb();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(IDB_STORE, 'readwrite');
+        tx.objectStore(IDB_STORE).delete(key);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      });
+    }
+
+    // Given a stored photo reference (either raw base64 or "idb:key"), return the actual data URI
+    async function resolvePhoto(photoRef) {
+      if (!photoRef) return null;
+      if (typeof photoRef !== 'string') return null;
+      if (photoRef.startsWith(IDB_KEY_PREFIX)) {
+        try {
+          return await idbGetPhoto(photoRef.substring(IDB_KEY_PREFIX.length));
+        } catch (e) {
+          return null;
+        }
+      }
+      // Legacy: raw base64 stored in localStorage
+      return photoRef;
+    }
+
+    // Resolve all photo refs in an entry to actual data URIs (for rendering)
+    async function resolvePhotos(photoRefs) {
+      if (!Array.isArray(photoRefs)) return [];
+      const results = await Promise.all(photoRefs.map(resolvePhoto));
+      return results.filter(x => x);  // drop nulls (missing/errored)
+    }
+
+    // Generate a unique IDB key for a photo
+    function makePhotoKey(entryId, idx) {
+      return `photo_${entryId}_${idx}_${Date.now()}`;
+    }
+
+    // Save a base64 photo to IDB and return its reference string
+    async function savePhotoToIdb(entryId, idx, dataUri) {
+      const key = makePhotoKey(entryId, idx);
+      await idbPutPhoto(key, dataUri);
+      return IDB_KEY_PREFIX + key;
+    }
+
+
+
+    // ============== Runtime photo cache (ref -> data URI) ==============
+    // entry.photos is stored as an array of refs. Refs can be either:
+    //   - "idb:key" -> looked up in IndexedDB and cached in memory
+    //   - raw base64 data URI (legacy, before migration)
+    // photoCache maps ref string -> resolved data URI for synchronous rendering.
+    const photoCache = new Map();
+
+    // Resolve a single photo ref to a data URI, using cache if possible
+    async function loadPhotoIntoCache(ref) {
+      if (!ref) return null;
+      if (photoCache.has(ref)) return photoCache.get(ref);
+      if (typeof ref === 'string' && ref.startsWith(IDB_KEY_PREFIX)) {
+        try {
+          const dataUri = await idbGetPhoto(ref.substring(IDB_KEY_PREFIX.length));
+          if (dataUri) {
+            photoCache.set(ref, dataUri);
+            return dataUri;
+          }
+        } catch (e) { /* fall through */ }
+        return null;
+      }
+      // Raw base64 legacy photo - cache it as its own value
+      photoCache.set(ref, ref);
+      return ref;
+    }
+
+    // Preload all photo refs found in state.entries into the cache
+    async function preloadPhotoCache() {
+      const allRefs = new Set();
+      state.entries.forEach(e => {
+        if (Array.isArray(e.photos)) e.photos.forEach(p => { if (p) allRefs.add(p); });
+      });
+      await Promise.all(Array.from(allRefs).map(loadPhotoIntoCache));
+    }
+
+    // Synchronous getter: returns data URI if in cache, else null
+    function getPhotoDataUri(ref) {
+      if (!ref) return null;
+      const cached = photoCache.get(ref);
+      if (cached) return cached;
+      // Legacy raw base64 not yet in cache - just return as-is
+      if (typeof ref === 'string' && !ref.startsWith(IDB_KEY_PREFIX)) {
+        photoCache.set(ref, ref);
+        return ref;
+      }
+      return null;
+    }
+
+    // ============== One-time migration: move photos from localStorage to IndexedDB ==============
+    async function runIdbPhotoMigration() {
+      try {
+        if (localStorage.getItem(IDB_MIGRATION_KEY) === '1') return;
+
+        // Count how many photos need moving (only raw base64, not already idb: refs)
+        let totalPhotos = 0;
+        const targets = [];
+        state.entries.forEach((entry, entryIdx) => {
+          if (!Array.isArray(entry.photos)) return;
+          entry.photos.forEach((p, photoIdx) => {
+            if (typeof p === 'string' && !p.startsWith(IDB_KEY_PREFIX)) {
+              totalPhotos++;
+              targets.push({ entryIdx, photoIdx, dataUri: p });
+            }
+          });
+        });
+
+        if (totalPhotos === 0) {
+          localStorage.setItem(IDB_MIGRATION_KEY, '1');
+          return;
+        }
+
+        // Save 30-day backup of current photos in localStorage before migrating
+        try {
+          const backup = state.entries.map(e => ({
+            id: e.id,
+            photos: Array.isArray(e.photos) ? [...e.photos] : []
+          }));
+          const backupStr = JSON.stringify(backup);
+          const expiresAt = Date.now() + (30 * 24 * 60 * 60 * 1000);  // 30 days from now
+          localStorage.setItem(LEGACY_BACKUP_KEY, backupStr);
+          localStorage.setItem(LEGACY_BACKUP_EXPIRES_KEY, String(expiresAt));
+        } catch (e) {
+          console.log('Failed to save legacy backup (localStorage may be full)', e);
+          // Continue anyway - migration is more important than backup
+        }
+
+        // Show progress overlay (reuse the same migration overlay)
+        const overlay = document.getElementById('migration-overlay');
+        const titleEl = overlay ? overlay.querySelector('.migration-title') : null;
+        const progressEl = document.getElementById('migration-progress');
+        const percentEl = document.getElementById('migration-percent');
+        if (overlay) {
+          overlay.classList.remove('hidden');
+          if (titleEl) titleEl.textContent = '照片搬家中，請稍候⋯';
+          if (progressEl) progressEl.textContent = `0 / ${totalPhotos}`;
+          if (percentEl) percentEl.style.width = '0%';
+        }
+
+        // Move each photo to IDB
+        let done = 0;
+        for (const t of targets) {
+          const entry = state.entries[t.entryIdx];
+          try {
+            const key = makePhotoKey(entry.id, t.photoIdx);
+            await idbPutPhoto(key, t.dataUri);
+            entry.photos[t.photoIdx] = IDB_KEY_PREFIX + key;
+          } catch (e) {
+            console.log('Failed to migrate photo:', e);
+            // Keep original base64 in entry.photos - migration will retry next time
+          }
+          done++;
+          if (progressEl) progressEl.textContent = `${done} / ${totalPhotos}`;
+          if (percentEl) percentEl.style.width = `${Math.round(done / totalPhotos * 100)}%`;
+        }
+
+        // Verify: count entries where all photos are now idb: refs
+        let allSuccess = true;
+        state.entries.forEach(e => {
+          if (Array.isArray(e.photos)) {
+            e.photos.forEach(p => {
+              if (typeof p === 'string' && !p.startsWith(IDB_KEY_PREFIX)) {
+                allSuccess = false;
+              }
+            });
+          }
+        });
+
+        // Save new entries state (with idb: refs) to localStorage
+        persistEntries();
+
+        // Only mark migration done if ALL photos moved successfully
+        if (allSuccess) {
+          localStorage.setItem(IDB_MIGRATION_KEY, '1');
+        }
+
+        if (progressEl) progressEl.textContent = '完成！';
+        await new Promise(r => setTimeout(r, 600));
+
+        if (overlay) overlay.classList.add('hidden');
+        render();
+      } catch (e) {
+        console.log('IDB migration error:', e);
+        const overlay = document.getElementById('migration-overlay');
+        if (overlay) overlay.classList.add('hidden');
+      }
+    }
+
+    // Clean up expired 30-day backup
+    function cleanupLegacyBackupIfExpired() {
+      try {
+        const expiresAtStr = localStorage.getItem(LEGACY_BACKUP_EXPIRES_KEY);
+        if (!expiresAtStr) return;
+        const expiresAt = parseInt(expiresAtStr, 10);
+        if (Date.now() > expiresAt) {
+          localStorage.removeItem(LEGACY_BACKUP_KEY);
+          localStorage.removeItem(LEGACY_BACKUP_EXPIRES_KEY);
+        }
+      } catch (e) {}
+    }
+
+    // ============== (Legacy) One-time photo recompression migration ==============
     const PHOTOS_MIGRATED_KEY = 'dxs-photos-migrated-v3';
 
     // Recompress a single base64 data URI to match current PHOTO_MAX_WIDTH / PHOTO_QUALITY
@@ -5107,8 +5422,11 @@
       }
     }
 
-    // Run migration after initial render, but before user starts interacting
-    setTimeout(runPhotoMigration, 500);
+    // Run migrations after initial render
+    setTimeout(async () => {
+      cleanupLegacyBackupIfExpired();
+      await runIdbPhotoMigration();
+    }, 500);
 
     // ============== Version tracking / update modal ==============
     const APP_VERSION = 'V1.3.0';

@@ -1,7 +1,7 @@
 // Service Worker for DXS Exchange App
 // Strategy: Network First for HTML/CSS/JS (always try fresh), Cache First for icons/manifest
 
-const CACHE_VERSION = 'v3';  // Bump this on every release to force cache refresh
+const CACHE_VERSION = 'v4';  // Bump this on every release to force cache refresh
 const CACHE_NAME = `dxs-exchange-${CACHE_VERSION}`;
 
 // Assets to precache (available offline)
